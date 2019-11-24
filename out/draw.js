@@ -248,6 +248,9 @@
         updatePosition(newPos) {
             this.position = newPos;
         }
+        updateLabel(newtext) {
+            this.text = newtext;
+        }
         drawText(cxt) {
             cxt.fillStyle = this.color.toString();
             cxt.font = this.font.toString();
@@ -269,6 +272,9 @@
         getPosition() {
             return this.position;
         }
+        toString() {
+            return this.position.toString();
+        }
     }
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     let canvas;
@@ -280,6 +286,21 @@
     let cursor;
     let font;
     let testLabel;
+    let fpsLabel;
+    // found this method online
+    const times = [];
+    let fps;
+    function getFpsLoop() {
+        window.requestAnimationFrame(() => {
+            const now = performance.now();
+            while (times.length > 0 && times[0] <= now - 1000) {
+                times.shift();
+            }
+            times.push(now);
+            fps = times.length;
+            getFpsLoop();
+        });
+    }
     function getMousePosition(pos) {
         cursor.updatePosition(pos);
     }
@@ -297,17 +318,21 @@
         for (let i = 0; i < numBalls; i++) {
             balls.add(new Ball(gen.next(0, background.width), gen.next(0, background.height), gen.next(10, 50), new Point(5, 5), new Color(gen.next(0, 256), gen.next(0, 256), gen.next(0, 256))));
         }
-        testLabel = new Label(new Point(0, 0), `${balls.size()} balls`, font, new Color(255, 0, 0));
+        fpsLabel = new Label(new Point(0, 0), `FPS: ${fps}`, font, new Color(0, 0, 0));
+        testLabel = new Label(new Point(100, 100), cursor.toString(), font, new Color(255, 0, 0));
     }
     function loop() {
         background.clear(bgcolor);
         for (let i = 0; i < balls.size(); i++) {
             balls.at(i).update(background.getHitbox());
         }
+        fpsLabel.updateLabel(`FPS: ${fps}`);
+        testLabel.updateLabel(cursor.toString());
         testLabel.updatePosition(cursor.getPosition());
         draw();
     }
     function draw() {
+        fpsLabel.drawText(context);
         testLabel.drawText(context);
         for (let i = 0; i < balls.size(); i++) {
             balls.at(i).draw(context);
@@ -315,6 +340,7 @@
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     setup();
+    getFpsLoop();
     (function startloop() {
         window.setInterval(loop, 16);
     })();
