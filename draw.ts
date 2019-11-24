@@ -1,5 +1,20 @@
 (function () {
 
+    interface IEquateable<T> {
+        equals(other: T): boolean;
+    }
+
+    interface ISprite {
+        position: Point;
+        size: Size;
+        hitbox: Rectangle;
+        draw(ctx: CanvasRenderingContext2D): void;
+    }
+
+    interface IStringable {
+        toString(): string;
+    }
+
     class List<T> implements IEquateable<List<T>>{
         private list: Array<T>;
 
@@ -100,7 +115,7 @@
         }
 
         draw(color: Color): void {
-            this.cxt.fillStyle = color.getString();
+            this.cxt.fillStyle = color.toString();
             this.cxt.fillRect(0, 0, this.width, this.height);
         }
 
@@ -116,15 +131,11 @@
 
     }
 
-    interface IEquateable<T> {
-        equals(other: T): boolean;
-    }
 
     class Point implements IEquateable<Point>{
 
         constructor(public readonly x: number, public readonly y: number) {
         }
-
 
         add(other: Point): Point {
             let newPoint = new Point(this.x + other.x, this.y + other.y);
@@ -141,6 +152,10 @@
                 return true;
             }
             return false;
+        }
+
+        toString(): string {
+            return `X: ${this.x}, Y: ${this.y}`;
         }
     }
 
@@ -203,12 +218,6 @@
         }
     }
 
-    interface Sprite {
-        position: Point;
-        size: Size;
-        hitbox: Rectangle;
-        draw(ctx: CanvasRenderingContext2D): void;
-    }
 
     class Color implements IEquateable<Color> {
         constructor(public readonly r: number, public readonly g: number, public readonly b: number) {
@@ -221,7 +230,7 @@
             return false;
         }
 
-        getString(): string {
+        toString(): string {
             return `rgb(${this.r},${this.g},${this.b})`;
         }
 
@@ -232,7 +241,7 @@
         }
     }
 
-    class Ball implements Sprite {
+    class Ball implements ISprite {
         position: Point;
         size: Size;
         hitbox: Rectangle;
@@ -283,9 +292,76 @@
 
         draw(ctx: CanvasRenderingContext2D): void {
             ctx.beginPath();
-            ctx.fillStyle = this.color.getString();
+            ctx.fillStyle = this.color.toString();
             ctx.arc(this.hitbox.right, this.hitbox.bottom, this.size.width, 0, 2 * Math.PI, false);
             ctx.fill();
+        }
+    }
+
+
+    class Font implements IStringable {
+        constructor(private readonly fontSizeInPixels: number, private readonly fontName: string) {
+            if (fontSizeInPixels < 1) {
+                throw new Error("font cannot be less than 1");
+            }
+        }
+
+        getFontSize(): number {
+            return this.fontSizeInPixels;
+        }
+
+        getFontname(): string {
+            return this.fontName;
+        }
+
+        toString(): string {
+            return `${this.fontSizeInPixels}px ${this.fontName}`;
+        }
+    }
+
+    class Label {
+        position: Point;
+        text: string;
+        font: Font;
+        color: Color;
+        textInfo: TextMetrics;
+
+        constructor(position: Point, text: string, font: Font, color: Color) {
+            this.position = position;
+            this.text = text;
+            this.font = font;
+            this.color = color;
+        }
+
+        updatePosition(newPos: Point): void {
+            this.position = newPos;
+        }
+
+        drawText(cxt: CanvasRenderingContext2D): void {
+            cxt.fillStyle = this.color.toString();
+            cxt.font = this.font.toString();
+            // center text horizontally at [x,y]
+            cxt.textAlign = 'left';
+            // center text vertically at [x,y]
+            cxt.textBaseline = 'top';
+            this.textInfo = cxt.measureText(this.text);
+            cxt.fillText(this.text, this.position.x, this.position.y, this.textInfo.width);
+        }
+    }
+
+    class Cursor {
+        position: Point;
+
+        constructor() {
+            this.position = new Point(0, 0);
+        }
+
+        updatePosition(event: MouseEvent): void {
+            this.position = new Point(event.clientX, event.clientY);
+        }
+
+        getPosition(): Point {
+            return this.position;
         }
     }
 
@@ -296,17 +372,27 @@
     let background: Canvas;
     let balls: List<Ball>;
     let gen: Random;
+    let cursor: Cursor;
+    let font: Font;
+    let testLabel: Label;
+
+    function getMousePosition(pos) {
+        cursor.updatePosition(pos);
+    }
 
     function setup() {
         canvas = document.getElementById("mycanvas") as HTMLCanvasElement;
         context = canvas.getContext("2d");
         background = new Canvas(canvas, context, new Size(window.innerWidth, window.innerHeight));
-        bgcolor = new Color(100, 149, 237);
+        cursor = new Cursor();
+        canvas.addEventListener("mousemove", getMousePosition);
 
         balls = new List<Ball>();
+        bgcolor = new Color(100, 149, 237);
+        font = new Font(30, "serif");
 
         gen = new Random();
-        let numBalls = 5;
+        let numBalls = 15;
 
         for (let i = 0; i < numBalls; i++) {
             balls.add(new Ball(
@@ -317,6 +403,7 @@
                 new Color(gen.next(0, 256), gen.next(0, 256), gen.next(0, 256))));
         }
 
+        testLabel = new Label(new Point(0, 0), `${balls.size()} balls`, font, new Color(255, 0, 0));
     }
 
     function loop() {
@@ -327,10 +414,14 @@
             balls.at(i).update(background.getHitbox());
         }
 
+        testLabel.updatePosition(cursor.getPosition());
+
         draw();
     }
 
     function draw() {
+
+        testLabel.drawText(context);
         for (let i = 0; i < balls.size(); i++) {
             balls.at(i).draw(context);
         }

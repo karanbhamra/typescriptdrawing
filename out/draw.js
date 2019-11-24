@@ -72,7 +72,7 @@
             this.height = size.height;
         }
         draw(color) {
-            this.cxt.fillStyle = color.getString();
+            this.cxt.fillStyle = color.toString();
             this.cxt.fillRect(0, 0, this.width, this.height);
         }
         clear(color) {
@@ -101,6 +101,9 @@
                 return true;
             }
             return false;
+        }
+        toString() {
+            return `X: ${this.x}, Y: ${this.y}`;
         }
     }
     class Size {
@@ -168,7 +171,7 @@
             }
             return false;
         }
-        getString() {
+        toString() {
             return `rgb(${this.r},${this.g},${this.b})`;
         }
         getRandomColor(gen) {
@@ -212,9 +215,59 @@
         }
         draw(ctx) {
             ctx.beginPath();
-            ctx.fillStyle = this.color.getString();
+            ctx.fillStyle = this.color.toString();
             ctx.arc(this.hitbox.right, this.hitbox.bottom, this.size.width, 0, 2 * Math.PI, false);
             ctx.fill();
+        }
+    }
+    class Font {
+        constructor(fontSizeInPixels, fontName) {
+            this.fontSizeInPixels = fontSizeInPixels;
+            this.fontName = fontName;
+            if (fontSizeInPixels < 1) {
+                throw new Error("font cannot be less than 1");
+            }
+        }
+        getFontSize() {
+            return this.fontSizeInPixels;
+        }
+        getFontname() {
+            return this.fontName;
+        }
+        toString() {
+            return `${this.fontSizeInPixels}px ${this.fontName}`;
+        }
+    }
+    class Label {
+        constructor(position, text, font, color) {
+            this.position = position;
+            this.text = text;
+            this.font = font;
+            this.color = color;
+        }
+        updatePosition(newPos) {
+            this.position = newPos;
+        }
+        drawText(cxt) {
+            cxt.fillStyle = this.color.toString();
+            cxt.font = this.font.toString();
+            // center text horizontally at [x,y]
+            cxt.textAlign = 'left';
+            // center text vertically at [x,y]
+            cxt.textBaseline = 'top';
+            this.textInfo = cxt.measureText(this.text);
+            cxt.fillText(this.text, this.position.x, this.position.y, this.textInfo.width);
+        }
+    }
+    class Cursor {
+        constructor() {
+            this.position = new Point(0, 0);
+        }
+        updatePosition(event) {
+            this.position = new Point(event.clientX, event.clientY);
+        }
+        getPosition() {
+            return this.position;
         }
     }
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -224,26 +277,38 @@
     let background;
     let balls;
     let gen;
+    let cursor;
+    let font;
+    let testLabel;
+    function getMousePosition(pos) {
+        cursor.updatePosition(pos);
+    }
     function setup() {
         canvas = document.getElementById("mycanvas");
         context = canvas.getContext("2d");
         background = new Canvas(canvas, context, new Size(window.innerWidth, window.innerHeight));
-        bgcolor = new Color(100, 149, 237);
+        cursor = new Cursor();
+        canvas.addEventListener("mousemove", getMousePosition);
         balls = new List();
+        bgcolor = new Color(100, 149, 237);
+        font = new Font(30, "serif");
         gen = new Random();
-        let numBalls = 5;
+        let numBalls = 15;
         for (let i = 0; i < numBalls; i++) {
             balls.add(new Ball(gen.next(0, background.width), gen.next(0, background.height), gen.next(10, 50), new Point(5, 5), new Color(gen.next(0, 256), gen.next(0, 256), gen.next(0, 256))));
         }
+        testLabel = new Label(new Point(0, 0), `${balls.size()} balls`, font, new Color(255, 0, 0));
     }
     function loop() {
         background.clear(bgcolor);
         for (let i = 0; i < balls.size(); i++) {
             balls.at(i).update(background.getHitbox());
         }
+        testLabel.updatePosition(cursor.getPosition());
         draw();
     }
     function draw() {
+        testLabel.drawText(context);
         for (let i = 0; i < balls.size(); i++) {
             balls.at(i).draw(context);
         }
