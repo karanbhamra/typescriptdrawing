@@ -90,16 +90,28 @@
 
         constructor(canvas, cxt, size: Size) {
             this.cxt = cxt;
-            this.width = size.width;
-            this.height = size.height;
+
             this.canvas = canvas;
             this.canvas.width = window.innerWidth - 10;
             this.canvas.height = window.innerHeight - 25;
+
+            this.width = size.width;
+            this.height = size.height;
         }
 
-        draw(color: Color) {
+        draw(color: Color): void {
             this.cxt.fillStyle = color.getString();
             this.cxt.fillRect(0, 0, this.width, this.height);
+        }
+
+        clear(color: Color): void {
+            this.draw(color);
+        }
+
+        getHitbox(): Rectangle {
+            let hitbox = new Rectangle(0, 0, this.canvas.width, this.canvas.height);
+
+            return hitbox;
         }
 
     }
@@ -111,6 +123,17 @@
     class Point implements IEquateable<Point>{
 
         constructor(public readonly x: number, public readonly y: number) {
+        }
+
+
+        add(other: Point): Point {
+            let newPoint = new Point(this.x + other.x, this.y + other.y);
+            return newPoint;
+        }
+
+        remove(other: Point): Point {
+            let newPoint = new Point(this.x - other.x, this.y - other.y);
+            return newPoint;
         }
 
         equals(other: Point): boolean {
@@ -153,7 +176,6 @@
                 this.x + this.width > other.x &&
                 this.y < other.y + other.height &&
                 this.y + this.height > other.y) {
-                // collision detected!
                 return true;
             }
 
@@ -202,6 +224,12 @@
         getString(): string {
             return `rgb(${this.r},${this.g},${this.b})`;
         }
+
+        getRandomColor(gen: Random): Color {
+
+            let tempColor = new Color(gen.next(0, 256), gen.next(0, 256), gen.next(0, 256));
+            return tempColor;
+        }
     }
 
     class Ball implements Sprite {
@@ -210,12 +238,47 @@
         hitbox: Rectangle;
         color: Color
         speed: Point;
-        constructor(x: number, y: number, radius: number, color: Color) {
+        constructor(x: number, y: number, radius: number, speed: Point, color: Color) {
             this.position = new Point(x, y);
             this.size = new Size(radius, radius);
             this.color = color;
+            this.speed = speed;
             this.hitbox = new Rectangle(this.position.x, this.position.y, this.size.width, this.size.height);
 
+        }
+
+        update(screen: Rectangle): void {
+            this.position = this.position.add(this.speed);
+
+            this.checkBounds(screen);
+
+            this.updateHitbox();
+        }
+
+        checkBounds(screen: Rectangle): void {
+
+            if (this.hitbox.right >= screen.right) {
+                this.speed = new Point(-Math.abs(this.speed.x), this.speed.y);
+                this.color = this.color.getRandomColor(gen);
+            }
+            else if (this.hitbox.left <= screen.left) {
+                this.speed = new Point(Math.abs(this.speed.x), this.speed.y);
+                this.color = this.color.getRandomColor(gen);
+
+            }
+            else if (this.hitbox.bottom >= screen.bottom) {
+                this.speed = new Point(this.speed.x, -Math.abs(this.speed.y));
+                this.color = this.color.getRandomColor(gen);
+
+            }
+            else if (this.hitbox.top <= screen.top) {
+                this.speed = new Point(this.speed.x, Math.abs(this.speed.y));
+                this.color = this.color.getRandomColor(gen);
+            }
+        }
+
+        updateHitbox(): void {
+            this.hitbox = new Rectangle(this.position.x, this.position.y, this.size.width, this.size.height);
         }
 
         draw(ctx: CanvasRenderingContext2D): void {
@@ -250,6 +313,7 @@
                 gen.next(0, background.width),
                 gen.next(0, background.height),
                 gen.next(10, 50),
+                new Point(5, 5),
                 new Color(gen.next(0, 256), gen.next(0, 256), gen.next(0, 256))));
         }
 
@@ -257,11 +321,16 @@
 
     function loop() {
 
+        background.clear(bgcolor);
 
+        for (let i = 0; i < balls.size(); i++) {
+            balls.at(i).update(background.getHitbox());
+        }
+
+        draw();
     }
 
     function draw() {
-        background.draw(bgcolor);
         for (let i = 0; i < balls.size(); i++) {
             balls.at(i).draw(context);
         }
@@ -270,8 +339,8 @@
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     setup();
 
-    loop();
-
-    draw();
+    (function startloop() {
+        window.setInterval(loop, 16);
+    })();
 
 })();
